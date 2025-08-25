@@ -1,0 +1,212 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Reaktionstest</title>
+<style>
+body {
+    background-color: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+    height: 100vh;
+    overflow: hidden;
+}
+h1 {
+    font-size: 48px;
+    margin-bottom: 40px;
+}
+.ampel-reihe {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 30px;
+}
+.licht {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: red;
+    transition: background-color 0.3s;
+}
+button {
+    margin-top: 20px;
+    padding: 20px 40px;
+    font-size: 28px;
+    cursor: pointer;
+}
+#zeit {
+    margin-top: 30px;
+    font-size: 72px;
+    font-weight: bold;
+}
+#highscoreDiv {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+}
+.best1 { font-size: 36px; font-weight: bold; color: gold; }
+.best2 { font-size: 28px; font-weight: bold; color: silver; }
+.best3 { font-size: 22px; font-weight: bold; color: bronze; }
+
+/* Verlauf */
+#verlaufDiv {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Effekt neue Bestzeit */
+@keyframes blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
+}
+.newBest {
+    animation: blink 1s ease-in-out 3;
+}
+</style>
+</head>
+<body>
+
+<h1>Reaktionstest</h1>
+
+<div class="ampel-reihe" id="reihe1"></div>
+<div class="ampel-reihe" id="reihe2"></div>
+
+<button id="startStop">Start</button>
+<div id="zeit">0 ms</div>
+
+<div id="highscoreDiv"></div>
+<div id="verlaufDiv"><strong>Verlauf:</strong></div>
+
+<script>
+const reihe1Div = document.getElementById('reihe1');
+const reihe2Div = document.getElementById('reihe2');
+const startStopButton = document.getElementById('startStop');
+const zeitDisplay = document.getElementById('zeit');
+const highscoreDiv = document.getElementById('highscoreDiv');
+const verlaufDiv = document.getElementById('verlaufDiv');
+
+let reihe1 = [];
+let reihe2 = [];
+let countdownInProgress = false;
+let running = false;
+let startTime = null;
+let highscore = [];
+let verlauf = [];
+const totalLichter = 5;
+
+// Ampeln erstellen
+for(let i = 0; i < totalLichter; i++) {
+    const licht1 = document.createElement('div');
+    licht1.classList.add('licht');
+    reihe1Div.appendChild(licht1);
+    reihe1.push(licht1);
+
+    const licht2 = document.createElement('div');
+    licht2.classList.add('licht');
+    reihe2Div.appendChild(licht2);
+    reihe2.push(licht2);
+}
+
+function resetAmpel() {
+    reihe1.forEach(l => l.style.backgroundColor = 'red');
+    reihe2.forEach(l => l.style.backgroundColor = 'red');
+}
+
+function startCountdown() {
+    countdownInProgress = true;
+    let index = totalLichter - 1;
+
+    const interval = setInterval(() => {
+        if(index >= 0) {
+            reihe1[index].style.backgroundColor = 'grey';
+            reihe2[index].style.backgroundColor = 'grey';
+            index--;
+        } else {
+            clearInterval(interval);
+            countdownInProgress = false;
+            // Ampel grün
+            reihe1.forEach(l => l.style.backgroundColor = 'green');
+            reihe2.forEach(l => l.style.backgroundColor = 'green');
+            startTime = Date.now();
+            running = true;
+            startStopButton.disabled = false;
+            startStopButton.textContent = 'Stop';
+        }
+    }, 500);
+}
+
+function updateHighscore(reactionTime) {
+    highscore.push(reactionTime);
+    highscore.sort((a,b) => a-b);
+    if(highscore.length > 3) highscore = highscore.slice(0,3);
+
+    highscoreDiv.innerHTML = '<strong>Top 3:</strong>';
+    highscore.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.textContent = `${t} ms`;
+        div.classList.remove('newBest');
+        if(i===0) div.classList.add('best1');
+        if(i===1) div.classList.add('best2');
+        if(i===2) div.classList.add('best3');
+
+        if(i === 0 && reactionTime === highscore[0]) div.classList.add('newBest');
+
+        highscoreDiv.appendChild(div);
+    });
+}
+
+function updateVerlauf(reactionTime) {
+    verlauf.push(reactionTime);
+    if(verlauf.length > 10) verlauf = verlauf.slice(verlauf.length - 10);
+
+    verlaufDiv.innerHTML = '<strong>Verlauf:</strong>';
+    verlauf.forEach(time => {
+        const div = document.createElement('div');
+        div.textContent = `${time} ms`;
+        verlaufDiv.appendChild(div);
+    });
+}
+
+function toggleStartStop() {
+    if(countdownInProgress) return;
+
+    if(!running) {
+        startStopButton.disabled = true;
+        startCountdown();
+    } else if(running && startTime) {
+        const reactionTime = Date.now() - startTime;
+        zeitDisplay.textContent = `${reactionTime} ms`;
+        updateHighscore(reactionTime);
+        updateVerlauf(reactionTime);
+        startTime = null;
+        running = false;
+        resetAmpel();
+        startStopButton.textContent = 'Start';
+        startStopButton.disabled = false;
+    }
+}
+
+// Button & Leertaste
+startStopButton.addEventListener('click', toggleStartStop);
+document.addEventListener('keydown', e => {
+    if(e.code === 'Space') {
+        toggleStartStop();
+    }
+});
+</script>
+
+</body>
+</html>
